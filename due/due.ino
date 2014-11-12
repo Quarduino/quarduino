@@ -91,7 +91,7 @@ void loop()
   servoSetCurrentSpeed(map(rx.getThro(), 0, 1364, 10, 170));
   
   //If the current yaw is not correct
-  /*if (targetAngles[0] != correctedAngles[0])
+  /*if (targetAngles[0] - correctedAngles[0] > 1 || targetAngles[0] - correctedAngles[0] < -1)
   {
     float delta = (targetAngles[0] - correctedAngles[0]) * 0.001;
     curSpeed[0] -= (delta + prevCorr[0]);
@@ -102,7 +102,7 @@ void loop()
     prevCorr[0] += delta;
   }*/
   
-  if (targetAngles[1] != correctedAngles[1])
+  if (targetAngles[1] - correctedAngles[1] > 1 || targetAngles[1] - correctedAngles[1] < -1)
   {
      float delta = (targetAngles[1] - correctedAngles[1]) * 0.005;
      curSpeed[0] += (delta + prevCorr[1]);
@@ -114,7 +114,7 @@ void loop()
   }
   
   
-  if (targetAngles[2] != correctedAngles[2])
+  if (targetAngles[2] - correctedAngles[2] > 1 || targetAngles[2] - correctedAngles[2] < -1)
   {
      float delta = (targetAngles[2] - correctedAngles[2]) * 0.0005;
      curSpeed[0] += (delta + prevCorr[2]);
