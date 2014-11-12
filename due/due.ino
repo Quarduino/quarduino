@@ -4,21 +4,21 @@
 
 bool DEBUG = false; //Should be a preprocessor conditional
 
-#include <SatelliteReceiver.h>
+#include <SpektrumSattelite.h>
 #include <EasyTransfer.h>
 #include <Servo.h>
 
 EasyTransfer trans;
-SatelliteReceiver rx;
+SpektrumSattelite rx;
 
 //Each servo
 Servo motor[4];
 //Current servo speed
-byte curSpeed[4];
+short curSpeed[4];
 //Previous servo speed
-byte prevSpeed[4];
+short prevSpeed[4];
 
-byte prevCorr[4];
+float prevCorr[4];
 
 //Gyro start angles (yaw, pitch, roll)
 float startAngles[3];
@@ -44,7 +44,9 @@ void setup(){
   //UNO serial
   Serial1.begin(115200);
   //Receiver serial
-  Serial2.begin(115200);
+  Serial3.begin(115200);
+  
+  Serial.println("START");
   
   //Attach servo:
   motor[0].attach(2);
@@ -65,8 +67,6 @@ void setup(){
   trans.begin(details(data), &Serial1);
 }
 
-int i = 0;
-
 void loop()
 {
   //Get receiver data
@@ -78,56 +78,93 @@ void loop()
     startAngles[0] = data.yaw;
     startAngles[1] = data.pitch;
     startAngles[2] = data.roll;  
+    gyroIsReset = true;
   }
   
   //Correct angles
-  correctedAngles[0] = data.yaw + startAnlges[0];
-  correctedAngles[1] = data.pitch + startAnlges[1];
-  correctedAngles[2] = data.roll + startAnlges[2];
+  correctedAngles[0] = data.yaw - startAngles[0];
+  correctedAngles[1] = data.pitch - startAngles[1];
+  correctedAngles[2] = data.roll - startAngles[2];
   //max 1364
   
   //Set all speeds to pitch channel (calibrated to a 10 - 170 value)
-  servoSetCurrentSpeed(map(rx.GetPitch(), 0, 1364, 10, 170));
+  servoSetCurrentSpeed(map(rx.getThro(), 0, 1364, 10, 170));
   
   //If the current yaw is not correct
-  if (targetAngles[0] != correctedAngles[0])
+  /*if (targetAngles[0] != correctedAngles[0])
   {
-    float delta = (tagetAngles[0] - correctedAngles[0]) * 2;
+    float delta = (targetAngles[0] - correctedAngles[0]) * 0.001;
     curSpeed[0] -= (delta + prevCorr[0]);
     curSpeed[1] += (delta + prevCorr[0]);
     curSpeed[2] -= (delta + prevCorr[0]);
     curSpeed[3] += (delta + prevCorr[0]);
     
     prevCorr[0] += delta;
-  }
+  }*/
   
   if (targetAngles[1] != correctedAngles[1])
   {
-     float delta = (tagetAngles[1] - correctedAngles[1]) * 2;
-     curSpeed[0] -= (delta + prevCorr[1]);
-     curSpeed[1] -= (delta + prevCorr[1]);
-     curSpeed[2] += (delta + prevCorr[1]);
-     curSpeed[3] += (delta + prevCorr[1]);
+     float delta = (targetAngles[1] - correctedAngles[1]) * 0.005;
+     curSpeed[0] += (delta + prevCorr[1]);
+     curSpeed[1] += (delta + prevCorr[1]);
+     curSpeed[2] -= (delta + prevCorr[1]);
+     curSpeed[3] -= (delta + prevCorr[1]);
      
      prevCorr[1] += delta;
   }
   
+  
   if (targetAngles[2] != correctedAngles[2])
   {
-     float delta = (tagetAngles[2] - correctedAngles[2]) * 2;
+     float delta = (targetAngles[2] - correctedAngles[2]) * 0.0005;
      curSpeed[0] += (delta + prevCorr[2]);
-     curSpeed[1] += (delta + prevCorr[2]);
+     curSpeed[1] -= (delta + prevCorr[2]);
      curSpeed[2] -= (delta + prevCorr[2]);
-     curSpeed[3] -= (delta + prevCorr[2]);
+     curSpeed[3] += (delta + prevCorr[2]);
      
      prevCorr[2] += delta;
+     
+    Serial.print("target=");
+    Serial.print(targetAngles[2]);
+    Serial.print(", corrected=");
+    Serial.print(correctedAngles[2]);
+    Serial.print(", prev=");
+    Serial.print(prevCorr[2]);
+    Serial.print(", delta=");
+    Serial.print(delta);
+    Serial.print(", start2=");
+    Serial.print(startAngles[2]);
+    Serial.print('\n');
   }
+
   
   
   prevSpeed[0] = curSpeed[0];
   prevSpeed[1] = curSpeed[1];
   prevSpeed[2] = curSpeed[2];
   prevSpeed[3] = curSpeed[3];
+  
+  if (rx.getThro() < 20)
+  {
+    servoSetCurrentSpeed(10);
+    prevCorr[0] = 0;
+    prevCorr[1] = 0;
+    prevCorr[2] = 0;
+  }
+  
+  for (short i = 0; i < 4; i++)
+  {
+    if (curSpeed[i] < 10)
+    {
+      curSpeed[i] = 10; 
+    }
+   
+    if (curSpeed[i] > 170)
+    {
+      curSpeed[i] = 170; 
+    } 
+  }
+  
   servoUpdate();
   
   if (DEBUG == true)
@@ -138,7 +175,7 @@ void loop()
 
 void debug()
 {
-  Serial.print("Gyro:\t");
+  /*Serial.print("Gyro:\t");
   if (gyroDataReceived == true)
   {
     Serial.println("---------------");
@@ -154,10 +191,9 @@ void debug()
     Serial.print(data.roll);
     Serial.print('\t');
   }
-  
+  */
   
   /*
-  Serial.print("Reveicer:\t");
   Serial.print(rx.getErrors());
   Serial.print("\t");
   Serial.print(rx.getBindType());
@@ -171,8 +207,8 @@ void debug()
   Serial.print(rx.getElev());
   Serial.print("\t");
   Serial.print(rx.getRudd());
-  Serial.println();
-  */  
+  Serial.print('\n');*/
+  
 }
 
 void servoUpdate() //Set all servos to their current speed
@@ -180,14 +216,25 @@ void servoUpdate() //Set all servos to their current speed
   for (int i = 0; i < 4; i++)
   {
     motor[i].write(curSpeed[i]);
+    
+    if (DEBUG == true)
+    {
+      Serial.print(i);
+      Serial.print(":");
+      Serial.print(curSpeed[i]); 
+      Serial.print('\t');
+    }
+    
   }  
+  
+  if (DEBUG == true) {Serial.print(rx.getThro()); Serial.print("\n");}
 }
 
 void servoSetCurrentSpeed(byte val)
 {
   for (int i = 0; i < 4; i++)
   {
-    currentSpeed[i] = val;
+    curSpeed[i] = val;
   }  
 }
 
