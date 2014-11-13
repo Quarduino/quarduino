@@ -79,6 +79,14 @@ void loop()
     startAngles[1] = data.pitch;
     startAngles[2] = data.roll;
     gyroIsReset = true;
+    
+    Serial.print("GYRO RESET TO ");
+    Serial.print(data.yaw);
+    Serial.print(", ");
+    Serial.print(data.pitch);
+    Serial.print(", ");
+    Serial.print(data.roll);
+    Serial.print('\n');
   }
 
   //Correct angles
@@ -90,94 +98,11 @@ void loop()
   //Set all speeds to pitch channel (calibrated to a 10 - 170 value)
   servoSetCurrentSpeed(map(rx.getThro(), 0, 1364, 10, 170));
 
-  //If the current yaw is not correct
-  /*if (targetAngles[0] - correctedAngles[0] > 1 || targetAngles[0] - correctedAngles[0] < -1)
+  if (rx.getAux4() > 500)
   {
-    float delta = (targetAngles[0] - correctedAngles[0]) * 0.001;
-    curSpeed[0] -= (delta + prevCorr[0]);
-    curSpeed[1] += (delta + prevCorr[0]);
-    curSpeed[2] -= (delta + prevCorr[0]);
-    curSpeed[3] += (delta + prevCorr[0]);
-
-    if (prevCorr[0] + delta < -50)
-    {
-      prevCorr[0] = -50;
-    }
-
-    else if (prevCorr[0] + delta > 50)
-    {
-      prevCorr[0] = 50;
-    }
-
-    else
-    {
-      prevCorr[0] += delta;
-    }
-  }*/
-
-  if (targetAngles[1] - correctedAngles[1] > 1 || targetAngles[1] - correctedAngles[1] < -1)
-  {
-    float delta = (targetAngles[1] - correctedAngles[1]) * 0.005;
-    curSpeed[0] += (delta + prevCorr[1]);
-    curSpeed[1] += (delta + prevCorr[1]);
-    curSpeed[2] -= (delta + prevCorr[1]);
-    curSpeed[3] -= (delta + prevCorr[1]);
-
-    if (prevCorr[1] + delta < -50)
-    {
-      prevCorr[1] = -50;
-    }
-
-    else if (prevCorr[1] + delta > 50)
-    {
-      prevCorr[1] = 50;
-    }
-
-    else
-    {
-      prevCorr[1] += delta;
-    }
+    stabilize();
   }
-
-
-  if (targetAngles[2] - correctedAngles[2] > 1 || targetAngles[2] - correctedAngles[2] < -1)
-  {
-    float delta = (targetAngles[2] - correctedAngles[2]) * 0.0005;
-    curSpeed[0] += (delta + prevCorr[2]);
-    curSpeed[1] -= (delta + prevCorr[2]);
-    curSpeed[2] -= (delta + prevCorr[2]);
-    curSpeed[3] += (delta + prevCorr[2]);
-    
-    if (prevCorr[2] + delta < -50)
-    {
-      prevCorr[2] = -50;
-    }
-
-    else if (prevCorr[2] + delta > 50)
-    {
-      prevCorr[2] = 50;
-    }
-
-    else
-    {
-      prevCorr[2] += delta;
-    }
-
-    Serial.print("target=");
-    Serial.print(targetAngles[2]);
-    Serial.print(", corrected=");
-    Serial.print(correctedAngles[2]);
-    Serial.print(", prev=");
-    Serial.print(prevCorr[2]);
-    Serial.print(", delta=");
-    Serial.print(delta);
-    Serial.print(", start2=");
-    Serial.print(startAngles[2]);
-    Serial.print('\n');
-  }
-
-
-
+  
   prevSpeed[0] = curSpeed[0];
   prevSpeed[1] = curSpeed[1];
   prevSpeed[2] = curSpeed[2];
@@ -209,6 +134,106 @@ void loop()
   if (DEBUG == true)
   {
     debug();
+  }
+}
+
+void stabilize()
+{
+  //If the current yaw is not correct
+  /*if (targetAngles[0] - correctedAngles[0] > 1 || targetAngles[0] - correctedAngles[0] < -1)
+  {
+    float delta = (targetAngles[0] - correctedAngles[0]) * 0.001;
+    curSpeed[0] -= (delta + prevCorr[0]);
+    curSpeed[1] += (delta + prevCorr[0]);
+    curSpeed[2] -= (delta + prevCorr[0]);
+    curSpeed[3] += (delta + prevCorr[0]);
+
+    if (prevCorr[0] + delta < -50)
+    {
+      prevCorr[0] = -50;
+    }
+
+    else if (prevCorr[0] + delta > 50)
+    {
+      prevCorr[0] = 50;
+    }
+
+    else
+    {
+      prevCorr[0] += delta;
+    }
+  }*/
+
+  if (targetAngles[1] - correctedAngles[1] > 5 || targetAngles[1] - correctedAngles[1] < -5)
+  {
+    float delta = (targetAngles[1] - correctedAngles[1]) * 0.0005;
+    curSpeed[0] += (delta + prevCorr[1]);
+    curSpeed[1] += (delta + prevCorr[1]);
+    curSpeed[2] -= (delta + prevCorr[1]);
+    curSpeed[3] -= (delta + prevCorr[1]);
+
+    /*if (prevCorr[1] + delta < -50)
+    {
+      prevCorr[1] = -50;
+    }
+
+    else if (prevCorr[1] + delta > 50)
+    {
+      prevCorr[1] = 50;
+    }
+
+    else
+    {
+      prevCorr[1] += delta;
+    }*/
+
+    prevCorr[1] += delta;
+  }
+  else
+  {
+    prevCorr[1] = 0;
+  }
+
+
+  if (targetAngles[2] - correctedAngles[2] > 5 || targetAngles[2] - correctedAngles[2] < -5)
+  {
+    float delta = (targetAngles[2] - correctedAngles[2]) * 0.0005;
+    curSpeed[0] += (delta + prevCorr[2]);
+    curSpeed[1] -= (delta + prevCorr[2]);
+    curSpeed[2] -= (delta + prevCorr[2]);
+    curSpeed[3] += (delta + prevCorr[2]);
+
+    /*if (prevCorr[2] + delta < -50)
+    {
+      prevCorr[2] = -50;
+    }
+
+    else if (prevCorr[2] + delta > 50)
+    {
+      prevCorr[2] = 50;
+    }
+
+    else
+    {
+      prevCorr[2] += delta;
+    }*/
+    prevCorr[2] += delta;
+
+    Serial.print("target=");
+    Serial.print(targetAngles[2]);
+    Serial.print(", corrected=");
+    Serial.print(correctedAngles[2]);
+    Serial.print(", prev=");
+    Serial.print(prevCorr[2]);
+    Serial.print(", delta=");
+    Serial.print(delta);
+    Serial.print(", start2=");
+    Serial.print(startAngles[2]);
+    Serial.print('\n');
+  }
+  else
+  {
+    prevCorr[2] = 0;
   }
 }
 
