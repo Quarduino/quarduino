@@ -24,11 +24,14 @@ float prevCorr[4];
 float startAngles[3];
 
 //Current angles but corrected (current angles + start angles)
-float correctedAngles[3];
+float correctedAngles[4];
 float targetAngles[3];
 
 bool gyroDataReceived = false;
 bool gyroIsReset = false;
+
+float corrMultiplier;
+const byte stabMin = 3;
 
 struct RECEIVE_DATA_STRUCTURE {
   float yaw;                //32 bits
@@ -38,6 +41,28 @@ struct RECEIVE_DATA_STRUCTURE {
 
 RECEIVE_DATA_STRUCTURE data;
 
+void serialFloatPrint(float f) {
+  byte * b = (byte *) &f;
+  for(int i=0; i<4; i++) {
+    
+    byte b1 = (b[i] >> 4) & 0x0f;
+    byte b2 = (b[i] & 0x0f);
+    
+    char c1 = (b1 < 10) ? ('0' + b1) : 'A' + b1 - 10;
+    char c2 = (b2 < 10) ? ('0' + b2) : 'A' + b2 - 10;
+    
+    Serial.print(c1);
+    Serial.print(c2);
+  }
+}
+
+void serialPrintFloatArr(float * arr, int length) {
+  for(int i=0; i<length; i++) {
+    serialFloatPrint(arr[i]);
+    Serial.print(",");
+  }
+}
+
 void setup() {
   //Debug serial
   Serial.begin (115200);
@@ -46,7 +71,7 @@ void setup() {
   //Receiver serial
   Serial3.begin(115200);
 
-  Serial.println("START");
+  //Serial.println("START");
 
   //Attach servo:
   motor[0].attach(2);
@@ -65,12 +90,20 @@ void setup() {
 
   //Begin receiving gyro data
   trans.begin(details(data), &Serial1);
+  
+  rx.getFrame();
+  if (rx.getTrans())
+  {
+    Serial.println("TRANSMITTER ON ON STARTUP");
+    halt();
+  }
 }
 
 void loop()
 {
   //Get receiver data
   rx.getFrame();
+  //Serial.println(rx.getTrans());
   gyroDataReceived = trans.receiveData();
 
   if (gyroDataReceived == true && gyroIsReset == false)
@@ -80,13 +113,13 @@ void loop()
     startAngles[2] = data.roll;
     gyroIsReset = true;
     
-    Serial.print("GYRO RESET TO ");
+    /*Serial.print("GYRO RESET TO ");
     Serial.print(data.yaw);
     Serial.print(", ");
     Serial.print(data.pitch);
     Serial.print(", ");
     Serial.print(data.roll);
-    Serial.print('\n');
+    Serial.print('\n');*/
   }
 
   //Correct angles
@@ -97,10 +130,23 @@ void loop()
 
   //Set all speeds to pitch channel (calibrated to a 10 - 170 value)
   servoSetCurrentSpeed(map(rx.getThro(), 0, 1364, 10, 170));
-
+  
+  corrMultiplier = floatMap(rx.getGear(), 0, 1364, 0.0025, 0.004);
+  //Serial.println(corrMultiplier * 1000);
+  
   if (rx.getAux4() > 500)
   {
     stabilize();
+    //WRITE ANGLES TO SERIAL
+    //serialPrintFloatArr(correctedAngles, 4);
+    //Serial.println("");
+    //delay(60);
+    /*Serial.print(correctedAngles[0]);
+    Serial.print(", ");
+    Serial.print(correctedAngles[1]);
+    Serial.print(", ");
+    Serial.print(correctedAngles[2]);
+    Serial.print("\n");*/
   }
   
   prevSpeed[0] = curSpeed[0];
@@ -164,28 +210,28 @@ void stabilize()
     }
   }*/
 
-  if (targetAngles[1] - correctedAngles[1] > 5 || targetAngles[1] - correctedAngles[1] < -5)
+  if (targetAngles[1] - correctedAngles[1] > 0 || targetAngles[1] - correctedAngles[1] < -0)
   {
-    float delta = (targetAngles[1] - correctedAngles[1]) * 0.0005;
+    float delta = (targetAngles[1] - correctedAngles[1]) * corrMultiplier;
     curSpeed[0] += (delta + prevCorr[1]);
     curSpeed[1] += (delta + prevCorr[1]);
     curSpeed[2] -= (delta + prevCorr[1]);
     curSpeed[3] -= (delta + prevCorr[1]);
 
-    /*if (prevCorr[1] + delta < -50)
+    if (prevCorr[1] + delta < -5)
     {
-      prevCorr[1] = -50;
+      prevCorr[1] = -5;
     }
 
-    else if (prevCorr[1] + delta > 50)
+    else if (prevCorr[1] + delta > 5)
     {
-      prevCorr[1] = 50;
+      prevCorr[1] = 5;
     }
 
     else
     {
       prevCorr[1] += delta;
-    }*/
+    }
 
     prevCorr[1] += delta;
   }
@@ -195,31 +241,31 @@ void stabilize()
   }
 
 
-  if (targetAngles[2] - correctedAngles[2] > 5 || targetAngles[2] - correctedAngles[2] < -5)
+  if (targetAngles[2] - correctedAngles[2] > 0 || targetAngles[2] - correctedAngles[2] < -0)
   {
-    float delta = (targetAngles[2] - correctedAngles[2]) * 0.0005;
+    float delta = (targetAngles[2] - correctedAngles[2]) * corrMultiplier;
     curSpeed[0] += (delta + prevCorr[2]);
     curSpeed[1] -= (delta + prevCorr[2]);
     curSpeed[2] -= (delta + prevCorr[2]);
     curSpeed[3] += (delta + prevCorr[2]);
 
-    /*if (prevCorr[2] + delta < -50)
+    if (prevCorr[2] + delta < -5)
     {
-      prevCorr[2] = -50;
+      prevCorr[2] = -5;
     }
 
-    else if (prevCorr[2] + delta > 50)
+    else if (prevCorr[2] + delta > 5)
     {
-      prevCorr[2] = 50;
+      prevCorr[2] = 5;
     }
 
     else
     {
       prevCorr[2] += delta;
-    }*/
+    }
     prevCorr[2] += delta;
 
-    Serial.print("target=");
+    /*Serial.print("target=");
     Serial.print(targetAngles[2]);
     Serial.print(", corrected=");
     Serial.print(correctedAngles[2]);
@@ -229,12 +275,15 @@ void stabilize()
     Serial.print(delta);
     Serial.print(", start2=");
     Serial.print(startAngles[2]);
-    Serial.print('\n');
+    Serial.print('\n');*/
   }
   else
   {
     prevCorr[2] = 0;
   }
+  
+  prevCorr[1] = 0;
+  prevCorr[2] = 0;
 }
 
 void debug()
@@ -313,3 +362,16 @@ void servoWriteAll(int val)
   }
 }
 
+void halt()
+{
+  Serial.println("HALTING");
+  while (true) 
+  {
+    Serial.println("HALTING");
+  } 
+}
+
+float floatMap(float x, float in_min, float in_max, float out_min, float out_max)
+{
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
