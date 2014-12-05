@@ -91,18 +91,57 @@ void setup() {
   //Begin receiving gyro data
   trans.begin(details(data), &Serial1);
   
-  rx.getFrame();
-  if (rx.getTrans())
+  //security();
+}
+
+void security()
+{
+  if (rx.getFrame()) //Transmitter on
   {
     Serial.println("TRANSMITTER ON ON STARTUP");
     halt();
   }
+  
+  Serial.println("Transmitter off");
+  
+  //Loop until transmitter on
+  Serial.println("Waiting for trans");
+  btone(200);
+  while (rx.getFrame() == false)
+  {
+    //WAIT
+    delay(100);  
+  }
+  
+  //Transmitter is now on:
+  delay(2000);
+  rx.getFrame();
+  short firstVal = rx.getAux2();
+  
+  Serial.println("Waiting for aux2"); 
+  btone(300);
+  while (abs(rx.getAux2() - firstVal) < 100)
+  {
+    rx.getFrame();
+    delay(100);
+  }
+  
+  //It works
+  Serial.println("Trans control completed");
+  btone(100);
 }
 
 void loop()
 {
+  bool received = rx.getFrame();
   //Get receiver data
-  rx.getFrame();
+  if (received == false)
+  {
+    //halt();  
+  }
+  
+  
+  
   //Serial.println(rx.getTrans());
   gyroDataReceived = trans.receiveData();
 
@@ -113,13 +152,13 @@ void loop()
     startAngles[2] = data.roll;
     gyroIsReset = true;
     
-    /*Serial.print("GYRO RESET TO ");
+    Serial.print("GYRO RESET TO ");
     Serial.print(data.yaw);
     Serial.print(", ");
     Serial.print(data.pitch);
     Serial.print(", ");
     Serial.print(data.roll);
-    Serial.print('\n');*/
+    Serial.print('\n');
   }
 
   //Correct angles
@@ -132,7 +171,7 @@ void loop()
   servoSetCurrentSpeed(map(rx.getThro(), 0, 1364, 10, 170));
   
   corrMultiplier = floatMap(rx.getGear(), 0, 1364, 0.0025, 0.004);
-  //Serial.println(corrMultiplier * 1000);
+  Serial.println(map(rx.getThro(), 0, 1364, 10, 170));
   
   if (rx.getAux4() > 500)
   {
@@ -364,11 +403,29 @@ void servoWriteAll(int val)
 
 void halt()
 {
-  Serial.println("HALTING");
+  servoWriteAll(0);
+  btone(250);
   while (true) 
   {
+    //Turn of engines
+    servoWriteAll(0);
     Serial.println("HALTING");
+    btone(150);
   } 
+}
+
+unsigned long stime = 0;
+void btone(short pause)
+{
+    pinMode(11, OUTPUT);
+    stime = millis();
+    while ((millis() - stime) < 500)
+    {
+      digitalWrite(11, HIGH);
+      delayMicroseconds(pause);
+      digitalWrite(11, LOW);
+      delayMicroseconds(pause);  
+    }
 }
 
 float floatMap(float x, float in_min, float in_max, float out_min, float out_max)
