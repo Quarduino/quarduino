@@ -41,6 +41,22 @@ struct RECEIVE_DATA_STRUCTURE {
 
 RECEIVE_DATA_STRUCTURE data;
 
+//NEW
+bool secure = false;
+bool firstCheck = false;
+bool secondCheck = false;
+bool thirdCheck = false;
+
+short prevAux2 = 0;
+
+//TONE
+unsigned long prevTime;
+unsigned long toneStartTime;
+bool tonePin = false;
+bool genTone;
+bool prevGenTone;
+//----
+
 void serialFloatPrint(float f) {
   byte * b = (byte *) &f;
   for(int i=0; i<4; i++) {
@@ -71,7 +87,7 @@ void setup() {
   //Receiver serial
   Serial3.begin(115200);
 
-  //Serial.println("START");
+  pinMode(11, OUTPUT);
 
   //Attach servo:
   motor[0].attach(2);
@@ -91,58 +107,93 @@ void setup() {
   //Begin receiving gyro data
   trans.begin(details(data), &Serial1);
   
-  //security();
+  genTone=true;
+}
+
+
+void loop()
+{
+  rx.getFrame();
+  duetone();
+  if (secure == true)
+  {
+    if(rx.getTrans() == false)
+    {
+      halt(); 
+    }
+    else
+    {
+      fly();
+    } 
+  }
+  else
+  {
+    security();
+  }
+  
 }
 
 void security()
 {
-  if (rx.getFrame()) //Transmitter on
+  if (firstCheck && secondCheck && thirdCheck)
   {
-    Serial.println("TRANSMITTER ON ON STARTUP");
-    halt();
+    Serial.println("Secure");
+    genTone = true;
+    secure = true;  
   }
   
-  Serial.println("Transmitter off");
-  
-  //Loop until transmitter on
-  Serial.println("Waiting for trans");
-  btone(200);
-  while (rx.getFrame() == false)
+  //FIRST CHECK
+  else if (firstCheck == false)
   {
-    //WAIT
-    delay(100);  
+    //If transmitter is off
+    if (rx.getTrans() == false)
+    {
+      Serial.println("Transmitter off");
+      Serial.println("Turn on trans!");
+      genTone = true;
+      firstCheck = true;
+    }  
+    else 
+    {
+      halt();  
+    }
   }
   
-  //Transmitter is now on:
-  delay(2000);
-  rx.getFrame();
-  short firstVal = rx.getAux2();
-  
-  Serial.println("Waiting for aux2"); 
-  btone(300);
-  while (abs(rx.getAux2() - firstVal) < 100)
+  //SECOND CHECK
+  else if (secondCheck == false)
   {
-    rx.getFrame();
-    delay(100);
+    //If transmitter is on
+    if (rx.getTrans() == true)
+    {
+      Serial.println("Transmitter on");
+      secondCheck = true;
+    }  
   }
   
-  //It works
-  Serial.println("Trans control completed");
-  btone(100);
+  //THIRD CHECK
+  else if (thirdCheck == false)
+  {
+    if (prevAux2 == 0) //Default value
+    {
+      Serial.println("Waiting for Aux2");
+      genTone = true;
+      prevAux2 = rx.getAux2();
+    }  
+    //If the difference between current and previous value is > 100
+    else if (abs(rx.getAux2() - prevAux2) > 100)
+    {
+      Serial.println("Aux2 changed");
+      thirdCheck = true;  
+    }
+    else
+    {
+      prevAux2 = rx.getAux2();
+    }
+  }
 }
 
-void loop()
+void fly()
 {
-  bool received = rx.getFrame();
-  //Get receiver data
-  if (received == false)
-  {
-    //halt();  
-  }
-  
-  
-  
-  //Serial.println(rx.getTrans());
   gyroDataReceived = trans.receiveData();
 
   if (gyroDataReceived == true && gyroIsReset == false)
@@ -170,16 +221,14 @@ void loop()
   //Set all speeds to pitch channel (calibrated to a 10 - 170 value)
   servoSetCurrentSpeed(map(rx.getThro(), 0, 1364, 10, 170));
   
-  corrMultiplier = floatMap(rx.getGear(), 0, 1364, 0.0025, 0.004);
-  Serial.println(map(rx.getThro(), 0, 1364, 10, 170));
+  corrMultiplier = floatMap(rx.getGear(), 0, 1364, 0.1, 1);
+  //Serial.println(map(rx.getThro(), 0, 1364, 10, 170));
   
   if (rx.getAux4() > 500)
   {
     stabilize();
     //WRITE ANGLES TO SERIAL
-    //serialPrintFloatArr(correctedAngles, 4);
-    //Serial.println("");
-    //delay(60);
+    
     /*Serial.print(correctedAngles[0]);
     Serial.print(", ");
     Serial.print(correctedAngles[1]);
@@ -426,6 +475,41 @@ void btone(short pause)
       digitalWrite(11, LOW);
       delayMicroseconds(pause);  
     }
+}
+
+void duetone()
+{
+  if (genTone == true)
+  {
+    if (prevGenTone == false)
+    {
+      toneStartTime = millis();  
+    }
+    
+    if (micros() - prevTime > 200)
+    {
+      if (tonePin == false)
+      {
+        digitalWrite(11, HIGH);
+        tonePin = true;
+      }  
+      else
+      {
+        digitalWrite(11, LOW);
+        tonePin = false;  
+      }
+      
+      prevTime = micros();
+    } 
+   
+    if (millis() - toneStartTime > 1000)
+    {
+      genTone = false;  
+    }
+    
+  }  
+  
+  prevGenTone = genTone;
 }
 
 float floatMap(float x, float in_min, float in_max, float out_min, float out_max)
