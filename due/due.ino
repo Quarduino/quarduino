@@ -7,7 +7,10 @@ bool DEBUG = false; //Should be a preprocessor conditional
 #include <SpektrumSattelite.h>
 #include <EasyTransfer.h>
 #include <Servo.h>
+#include "SevSeg.h"
 
+SevSeg ledDisp;
+  
 EasyTransfer trans;
 SpektrumSattelite rx;
 
@@ -87,6 +90,8 @@ void setup() {
   //Receiver serial
   Serial3.begin(115200);
 
+  ledDisp.Begin(0,41,47,49,39,43,51,35,31,29,45,37,33);
+  ledDisp.Brightness(100);
   pinMode(11, OUTPUT);
 
   //Attach servo:
@@ -115,6 +120,7 @@ void loop()
 {
   rx.getFrame();
   duetone();
+  ledDisp.PrintOutput();
   if (secure == true)
   {
     if(rx.getTrans() == false)
@@ -140,6 +146,7 @@ void security()
     Serial.println("Secure");
     genTone = true;
     secure = true;  
+    ledDisp.NewNum(0000, 0);
   }
   
   //FIRST CHECK
@@ -150,6 +157,7 @@ void security()
     {
       Serial.println("Transmitter off");
       Serial.println("Turn on trans!");
+      ledDisp.NewNum(1111, 0);
       genTone = true;
       firstCheck = true;
     }  
@@ -176,6 +184,7 @@ void security()
     if (prevAux2 == 0) //Default value
     {
       Serial.println("Waiting for Aux2");
+      ledDisp.NewNum(2222, 0);
       genTone = true;
       prevAux2 = rx.getAux2();
     }  
@@ -229,12 +238,17 @@ void fly()
     stabilize();
     //WRITE ANGLES TO SERIAL
     
-    /*Serial.print(correctedAngles[0]);
-    Serial.print(", ");
-    Serial.print(correctedAngles[1]);
+    /*Serial.print(correctedAngles[1]);
     Serial.print(", ");
     Serial.print(correctedAngles[2]);
     Serial.print("\n");*/
+    ledDisp.NewNum(abs((int)correctedAngles[1]) + abs((int)correctedAngles[2] * 100), (byte)2);
+  }
+  else
+  {
+    //Re-reset gyro
+    ledDisp.NewNum(0000, (byte)4);
+    gyroIsReset = false;
   }
   
   prevSpeed[0] = curSpeed[0];
@@ -452,14 +466,16 @@ void servoWriteAll(int val)
 
 void halt()
 {
+  ledDisp.NewNum(9999, 0);
   servoWriteAll(0);
-  btone(250);
   while (true) 
   {
     //Turn of engines
     servoWriteAll(0);
     Serial.println("HALTING");
-    btone(150);
+    ledDisp.PrintOutput();
+    genTone = true;
+    duetone();
   } 
 }
 
