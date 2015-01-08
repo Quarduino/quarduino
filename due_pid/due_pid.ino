@@ -99,7 +99,6 @@ void setup() {
   genTone=true;
 }
 
-
 void loop()
 {
   rx.getFrame();
@@ -120,7 +119,6 @@ void loop()
   {
     security();
   }
-  
 }
 
 void security()
@@ -188,7 +186,9 @@ void security()
 void fly()
 {
   gyroDataReceived = trans.receiveData();
-
+  
+  pidRoll.SetTunings(0.8, doublemap(rx.getGear(), 0, 1364, 0, 3), 0);     //doublemap(rx.getGear(), 0, 1364, 1, 3)
+  pidPitch.SetTunings(0.8, doublemap(rx.getGear(), 0, 1364, 0, 3), 0);
   if (gyroDataReceived == true && gyroIsReset == false)
   {
     startAngles[0] = (double)data.yaw;
@@ -249,9 +249,9 @@ void stabilize()
   curSpeed[2] -= (short)outputValues[2];
   curSpeed[3] += (short)outputValues[2];
   
-  Serial.print(curSpeed[0]);
+  /*Serial.print(correctedAngles[1]);
   Serial.print('\t');
-  Serial.print(curSpeed[1]);
+  Serial.print(correctedAngles[2]);
   Serial.print('\t');
   Serial.print(curSpeed[2]);
   Serial.print('\t');
@@ -261,7 +261,7 @@ void stabilize()
   Serial.print(outputValues[1]);
   Serial.print('\t');
   Serial.print(outputValues[2]);
-  Serial.print('\n');
+  Serial.print('\n');*/
   
 }
 
@@ -352,7 +352,7 @@ void duetone()
   prevGenTone = genTone;
 }
 
-float floatMap(float x, float in_min, float in_max, float out_min, float out_max)
+double doublemap(double x, double in_min, double in_max, double out_min, double out_max)
 {
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
