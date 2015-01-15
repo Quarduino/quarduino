@@ -187,8 +187,34 @@ void fly()
 {
   gyroDataReceived = trans.receiveData();
   
-  pidRoll.SetTunings(0.8, doublemap(rx.getGear(), 0, 1364, 0, 3), 0);     //doublemap(rx.getGear(), 0, 1364, 1, 3)
-  pidPitch.SetTunings(0.8, doublemap(rx.getGear(), 0, 1364, 0, 3), 0);
+  double p = doublemap(rx.getGear(), 0, 1364, 0.5, 1.5);
+  double i = doublemap(rx.getAux3(), 0, 1364, 1, 2);
+ 
+  if (i < 0) { i = 0; }
+  if (p < 0) { p = 0; }
+  
+  pidRoll.SetTunings(p, i, 0.25);     //doublemap(rx.getGear(), 0, 1364, 1, 3)
+  pidPitch.SetTunings(p, i, 0.25);
+  
+  //Styr
+  targetAngles[1] = doublemap(rx.getElev(), 0, 1364, 15, -15);
+  targetAngles[2] = doublemap(rx.getAile(), 0, 1364, 15, -15);
+  
+  if (targetAngles[1] < 0.5 && targetAngles[1] > -0.5)
+  {
+    targetAngles[1] = 0;  
+  }
+  
+  if (targetAngles[2] < 0.5 && targetAngles[2] > -0.5)
+  {
+    targetAngles[2] = 0;  
+  }
+  
+  /*Serial.print(targetAngles[1]);
+  Serial.print('\t');
+  Serial.print(targetAngles[2]);
+  Serial.print('\n');*/
+  
   if (gyroDataReceived == true && gyroIsReset == false)
   {
     startAngles[0] = (double)data.yaw;
