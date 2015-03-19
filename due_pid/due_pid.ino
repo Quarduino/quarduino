@@ -90,8 +90,8 @@ void setup() {
   pidRoll.SetMode(AUTOMATIC);
   pidPitch.SetMode(AUTOMATIC);
   
-  pidRoll.SetOutputLimits(-100, 100);
-  pidPitch.SetOutputLimits(-100, 100);
+  pidRoll.SetOutputLimits(-500, 500);
+  pidPitch.SetOutputLimits(-500, 500);
 
   //Begin receiving gyro data
   trans.begin(details(data), &Serial1);
@@ -187,14 +187,14 @@ void fly()
 {
   gyroDataReceived = trans.receiveData();
   
-  double p = doublemap(rx.getGear(), 0, 1364, 0.5, 5);
+  double p = doublemap(rx.getGear(), 0, 1364, 0, 5);
   double i = doublemap(rx.getAux3(), 0, 1364, 0, 2);
  
   if (i < 0) { i = 0; }
   if (p < 0) { p = 0; }
   
-  pidRoll.SetTunings(p, 0, i);     //doublemap(rx.getGear(), 0, 1364, 1, 3)
-  pidPitch.SetTunings(p - 0.2, 0, i);
+  pidRoll.SetTunings(p, 0, 0);     //doublemap(rx.getGear(), 0, 1364, 1, 3)
+  pidPitch.SetTunings(p, 0, 0);
   
   //Styr
   targetAngles[1] = doublemap(rx.getElev(), 0, 1364, 20, -20);
